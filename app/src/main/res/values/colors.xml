@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the Compose palette in ui/theme/Color.kt -->
+    <color name="ic_launcher_background">#1E2340</color>
+    <color name="logo_pin">#F2A340</color>
+    <color name="logo_bell">#C97E1E</color>
+    <color name="logo_face">#F6F5F2</color>
+    <color name="logo_hands">#1E2340</color>
+</resources>

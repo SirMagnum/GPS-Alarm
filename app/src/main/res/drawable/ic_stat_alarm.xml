@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Silhouette of the launcher logo for the status bar: pin with the clock face cut out.
+     Same coordinates as ic_launcher_foreground, translated into a tighter 60x60 canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+
+    <group
+        android:translateX="-24"
+        android:translateY="-20.5">
+
+        <group
+            android:pivotX="54"
+            android:pivotY="47"
+            android:rotation="-42">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M49.5,29 A4.5,4.5 0 0,1 58.5,29 Z" />
+        </group>
+        <group
+            android:pivotX="54"
+            android:pivotY="47"
+            android:rotation="42">
+            <path
+                android:fillColor="#FFFFFFFF"
+                android:pathData="M49.5,29 A4.5,4.5 0 0,1 58.5,29 Z" />
+        </group>
+
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M54,79 L39.6,56.03 A17,17 0 1,1 68.4,56.03 Z M42,47 A12,12 0 1,0 66,47 A12,12 0 1,0 42,47 Z" />
+
+        <path
+            android:pathData="M54,47 L54,38.5 M54,47 L58.76,44.25"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="2.6" />
+    </group>
+</vector>
