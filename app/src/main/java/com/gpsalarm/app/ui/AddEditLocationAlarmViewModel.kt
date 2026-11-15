@@ -73,7 +73,7 @@ class AddEditLocationAlarmViewModel(
             } else {
                 repository.createLocationAlarm(alarm, details)
             }
-            geofenceManager.addGeofence(id, lat, lng, radiusMeters, triggerOn)
+            geofenceManager.addGeofence(id, lat, lng, radiusMeters, triggerOn, alarm.label)
             onSaved()
         }
     }

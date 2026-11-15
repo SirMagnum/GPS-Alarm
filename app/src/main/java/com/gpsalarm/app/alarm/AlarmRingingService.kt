@@ -19,6 +19,7 @@ import com.gpsalarm.app.R
 import com.gpsalarm.app.data.AlarmRepository
 import com.gpsalarm.app.data.AlarmType
 import com.gpsalarm.app.data.AppDatabase
+import com.gpsalarm.app.diagnostics.DiagnosticsLog
 import com.gpsalarm.app.ui.ringing.AlarmRingingActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun startRinging(alarmId: Long) {
+        DiagnosticsLog.record(this, "Ringing started for #$alarmId")
         startForeground(NOTIFICATION_ID, buildNotification(alarmId))
         acquireWakeLock()
 

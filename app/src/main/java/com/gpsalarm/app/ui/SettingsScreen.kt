@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,6 +43,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -49,6 +54,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gpsalarm.app.settings.SettingsStore
+import com.gpsalarm.app.ui.theme.backdropSource
+import com.gpsalarm.app.ui.theme.glassInk
+import com.gpsalarm.app.ui.theme.glassPanel
+import com.gpsalarm.app.ui.theme.matteBackgroundBrush
+import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
 
 private data class HealthCheck(
     val title: String,
@@ -60,7 +70,7 @@ private data class HealthCheck(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
     val context = LocalContext.current
 
     // Permissions are changed in system screens, so re-check whenever the user comes back.
@@ -72,15 +82,23 @@ fun SettingsScreen(onBack: () -> Unit) {
     val mapStyle by SettingsStore.mapStyle(context).collectAsStateWithLifecycle()
     var snoozeMinutes by remember { mutableIntStateOf(SettingsStore.defaultSnoozeMinutes(context)) }
 
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val backdrop = rememberGlassBackdrop()
+
     Scaffold(
+        modifier = Modifier.background(matteBackgroundBrush(isDark)),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("Settings", color = glassInk(isDark)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
             )
         },
     ) { contentPadding ->
@@ -88,12 +106,14 @@ fun SettingsScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .padding(contentPadding)
                 .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .backdropSource(backdrop),
         ) {
             SectionTitle("Appearance")
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -142,6 +162,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -180,6 +201,25 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+            SectionTitle("Troubleshooting")
+            Card(
+                onClick = onOpenDiagnostics,
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Diagnostics", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "See when alarms were set up and when they fired, to find out why one was late.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("About")
             Text(
                 "GPS Alarm ${versionName(context)}",
@@ -210,6 +250,7 @@ private fun HealthRow(check: HealthCheck, context: Context) {
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(

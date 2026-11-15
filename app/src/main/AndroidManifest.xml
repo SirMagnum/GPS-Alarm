@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- For ApproachTrackingService: brief, frequent GPS polling for the final stretch of a trip
+         to a location alarm, which Android's lazy geofence checks alone can be minutes late to
+         notice. Only runs between a wide outer-ring crossing and the real, small destination. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -45,6 +49,11 @@
             android:name=".alarm.AlarmRingingService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".geofence.ApproachTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <receiver
             android:name=".alarm.AlarmReceiver"

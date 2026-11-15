@@ -1,10 +1,13 @@
 package com.gpsalarm.app.ui
 
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,15 +16,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,40 +40,102 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.gpsalarm.app.settings.SettingsStore
+import com.gpsalarm.app.ui.theme.backdropSource
+import com.gpsalarm.app.ui.theme.glassInk
+import com.gpsalarm.app.ui.theme.glassPanel
+import com.gpsalarm.app.ui.theme.matteBackgroundBrush
+import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
 import java.util.Calendar
 
 private val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 
-/** Pass [alarmId] to edit an existing alarm; null creates a new one. */
+/** Full-screen flow for creating a brand-new time alarm (there's no existing card to expand from). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTimeAlarmScreen(
-    alarmId: Long?,
     onDone: () -> Unit,
     viewModel: AddEditTimeAlarmViewModel = addEditTimeAlarmViewModel(),
 ) {
-    // The pickers take their starting values once, so the form isn't built until the alarm has loaded.
-    var loading by remember { mutableStateOf(alarmId != null) }
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val backdrop = rememberGlassBackdrop()
+
+    Scaffold(
+        modifier = Modifier.background(matteBackgroundBrush(isDark)),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        topBar = {
+            TopAppBar(
+                title = { Text("New time alarm", color = glassInk(isDark)) },
+                navigationIcon = {
+                    IconButton(onClick = onDone) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
+            )
+        },
+    ) { contentPadding ->
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+                .backdropSource(backdrop)
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            TimeAlarmFields(existing = null, onDone = onDone, viewModel = viewModel)
+        }
+    }
+}
+
+/**
+ * The editor shown inline, inside an alarm's own list card, when that card is expanded —
+ * no navigation, no separate screen. The card grows around this content.
+ */
+@Composable
+fun InlineTimeAlarmEditor(
+    alarmId: Long,
+    onDone: () -> Unit,
+    viewModel: AddEditTimeAlarmViewModel = addEditTimeAlarmViewModel(),
+) {
     var existing by remember { mutableStateOf<TimeAlarmEdit?>(null) }
+    var loading by remember { mutableStateOf(true) }
     LaunchedEffect(alarmId) {
-        if (alarmId == null) return@LaunchedEffect
         existing = viewModel.load(alarmId)
         loading = false
         if (existing == null) onDone() // alarm was deleted out from under us
     }
 
     if (loading) {
-        LoadingScreen(onBack = onDone)
+        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
     } else {
-        TimeAlarmForm(existing = existing, onDone = onDone, viewModel = viewModel)
+        TimeAlarmFields(
+            existing = existing,
+            onDone = onDone,
+            viewModel = viewModel,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimeAlarmForm(existing: TimeAlarmEdit?, onDone: () -> Unit, viewModel: AddEditTimeAlarmViewModel) {
+private fun TimeAlarmFields(
+    existing: TimeAlarmEdit?,
+    onDone: () -> Unit,
+    viewModel: AddEditTimeAlarmViewModel,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val now = remember { Calendar.getInstance() }
     val timePickerState = rememberTimePickerState(
@@ -78,82 +149,91 @@ private fun TimeAlarmForm(existing: TimeAlarmEdit?, onDone: () -> Unit, viewMode
     var vibrate by remember { mutableStateOf(existing?.alarm?.vibrate ?: true) }
     var soundUri by remember { mutableStateOf(existing?.alarm?.soundUri?.let(Uri::parse)) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (existing == null) "New time alarm" else "Edit time alarm") },
-                navigationIcon = {
-                    IconButton(onClick = onDone) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { contentPadding ->
-        Column(
-            modifier = Modifier
-                .padding(contentPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Card(
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         ) {
-            TimePicker(state = timePickerState)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Label") },
-                modifier = Modifier.fillMaxWidth(),
+            TimePicker(
+                state = timePickerState,
+                colors = TimePickerDefaults.colors(
+                    // The dial itself in our own brand navy, not the generic flat grey every
+                    // other picker uses — "the quiet dark before an alarm fires", lit by the
+                    // one accent (the selector hand) at the moment it's set to wake you.
+                    clockDialColor = MaterialTheme.colorScheme.primaryContainer,
+                    clockDialSelectedContentColor = MaterialTheme.colorScheme.onSecondary,
+                    clockDialUnselectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectorColor = MaterialTheme.colorScheme.secondary,
+                    containerColor = Color.Transparent,
+                    periodSelectorBorderColor = MaterialTheme.colorScheme.outline,
+                    periodSelectorSelectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                    periodSelectorSelectedContentColor = MaterialTheme.colorScheme.onTertiary,
+                    periodSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
+                    periodSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    timeSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surface,
+                    timeSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.padding(16.dp),
             )
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Repeat")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                dayLabels.forEachIndexed { index, dayLabel ->
-                    val selected = (repeatDays shr index) and 1 == 1
-                    FilterChip(
-                        selected = selected,
-                        onClick = { repeatDays = repeatDays xor (1 shl index) },
-                        label = { Text(dayLabel) },
-                    )
-                }
+        OutlinedTextField(
+            value = label,
+            onValueChange = { label = it },
+            label = { Text("Label") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("Repeat")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            dayLabels.forEachIndexed { index, dayLabel ->
+                val selected = (repeatDays shr index) and 1 == 1
+                FilterChip(
+                    selected = selected,
+                    onClick = { repeatDays = repeatDays xor (1 shl index) },
+                    label = { Text(dayLabel) },
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            SoundAndVibrateSection(
-                soundUri = soundUri,
-                onSoundUriChange = { soundUri = it },
-                vibrate = vibrate,
-                onVibrateChange = { vibrate = it },
-            )
+        SoundAndVibrateSection(
+            soundUri = soundUri,
+            onSoundUriChange = { soundUri = it },
+            vibrate = vibrate,
+            onVibrateChange = { vibrate = it },
+        )
 
-            Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = {
-                    viewModel.save(
-                        existing = existing?.alarm,
-                        label = label,
-                        hour = timePickerState.hour,
-                        minute = timePickerState.minute,
-                        repeatDays = repeatDays,
-                        soundUri = soundUri?.toString(),
-                        vibrate = vibrate,
-                        snoozeDurationMin = SettingsStore.defaultSnoozeMinutes(context),
-                        onSaved = onDone,
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (existing == null) "Save" else "Save changes")
-            }
+        Button(
+            onClick = {
+                viewModel.save(
+                    existing = existing?.alarm,
+                    label = label,
+                    hour = timePickerState.hour,
+                    minute = timePickerState.minute,
+                    repeatDays = repeatDays,
+                    soundUri = soundUri?.toString(),
+                    vibrate = vibrate,
+                    snoozeDurationMin = SettingsStore.defaultSnoozeMinutes(context),
+                    onSaved = onDone,
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (existing == null) "Save" else "Save changes")
         }
     }
 }

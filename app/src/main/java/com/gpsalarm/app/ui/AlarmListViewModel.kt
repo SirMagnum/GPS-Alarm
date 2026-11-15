@@ -50,6 +50,7 @@ class AlarmListViewModel(
                                 details.destinationLng,
                                 details.radiusMeters,
                                 details.triggerOn,
+                                alarm.label,
                             )
                         }
                     } else {

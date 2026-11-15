@@ -5,6 +5,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.gpsalarm.app.diagnostics.DiagnosticsLog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TimeAlarmScheduler(private val context: Context) {
 
@@ -12,25 +16,28 @@ class TimeAlarmScheduler(private val context: Context) {
 
     fun schedule(alarmId: Long, hour: Int, minute: Int, repeatDays: Int) {
         val triggerAt = nextTriggerMillis(hour, minute, repeatDays)
-        setExact(triggerAt, pendingIntentFor(alarmId))
+        setExact(triggerAt, pendingIntentFor(alarmId), alarmId)
     }
 
     fun scheduleSnooze(alarmId: Long, minutes: Int) {
         val triggerAt = System.currentTimeMillis() + minutes * 60_000L
-        setExact(triggerAt, pendingIntentFor(alarmId))
+        setExact(triggerAt, pendingIntentFor(alarmId), alarmId)
     }
 
     fun cancel(alarmId: Long) {
         alarmManager.cancel(pendingIntentFor(alarmId))
     }
 
-    private fun setExact(triggerAt: Long, pendingIntent: PendingIntent) {
+    private fun setExact(triggerAt: Long, pendingIntent: PendingIntent, alarmId: Long) {
+        val whenText = SimpleDateFormat("EEE MMM d HH:mm:ss", Locale.US).format(Date(triggerAt))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            DiagnosticsLog.record(context, "Time alarm #$alarmId scheduled for $whenText (INEXACT: exact-alarm permission is off)")
             // User hasn't granted the exact-alarm permission; an inexact alarm still fires,
             // just not necessarily at the precise minute.
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
             return
         }
+        DiagnosticsLog.record(context, "Time alarm #$alarmId scheduled for $whenText (exact)")
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
     }
 

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Lets GPS Alarm appear in Developer options -> "Select mock location app", so a geofence
+         crossing can be simulated from Settings -> Diagnostics without physically travelling.
+         Debug-only: lint (rightly) requires this out of release manifests. -->
+    <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION" />
+
+</manifest>

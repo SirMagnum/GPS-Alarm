@@ -6,6 +6,7 @@ import android.content.Intent
 import com.gpsalarm.app.data.AlarmRepository
 import com.gpsalarm.app.data.AlarmType
 import com.gpsalarm.app.data.AppDatabase
+import com.gpsalarm.app.diagnostics.DiagnosticsLog
 import com.gpsalarm.app.geofence.GeofenceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ class BootReceiver : BroadcastReceiver() {
                 val repository = AlarmRepository(AppDatabase.getInstance(appContext).alarmDao())
                 val scheduler = TimeAlarmScheduler(appContext)
                 val geofenceManager = GeofenceManager(appContext)
+                DiagnosticsLog.record(appContext, "Phone restarted: re-registering enabled alarms")
                 repository.getEnabledAlarms().forEach { alarm ->
                     when (alarm.type) {
                         AlarmType.TIME -> repository.getTimeDetails(alarm.id)?.let { details ->
@@ -38,6 +40,7 @@ class BootReceiver : BroadcastReceiver() {
                                 details.destinationLng,
                                 details.radiusMeters,
                                 details.triggerOn,
+                                alarm.label,
                             )
                         }
                     }

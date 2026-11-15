@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -12,7 +13,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.DeviceFontFamilyName
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private val LightColors = lightColorScheme(
     primary = Midnight,
@@ -70,6 +76,32 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp),
 )
 
+// Two families, clearly distinct, each used on purpose rather than everywhere:
+//  - Display: a medium-weight humanist sans for titles and headlines — a step more confident
+//    than plain body text, built into every Android device (no download, no bundled file).
+//  - Numeral: real monospace, used only for the numbers that are the point of an alarm app — a
+//    time, a radius, a snooze length — so they read as instrument-precise rather than decorative.
+private val DisplayFontFamily = FontFamily(
+    Font(DeviceFontFamilyName("sans-serif-medium"), FontWeight.Medium),
+    Font(DeviceFontFamilyName("sans-serif"), FontWeight.Normal),
+)
+val NumeralFontFamily: FontFamily = FontFamily.Monospace
+
+private val baseline = Typography()
+private val AppTypography = Typography(
+    displayLarge = baseline.displayLarge.copy(fontFamily = DisplayFontFamily, letterSpacing = (-0.5).sp),
+    displayMedium = baseline.displayMedium.copy(fontFamily = DisplayFontFamily, letterSpacing = (-0.4).sp),
+    displaySmall = baseline.displaySmall.copy(fontFamily = DisplayFontFamily),
+    headlineLarge = baseline.headlineLarge.copy(fontFamily = DisplayFontFamily, letterSpacing = (-0.3).sp),
+    headlineMedium = baseline.headlineMedium.copy(fontFamily = DisplayFontFamily, letterSpacing = (-0.2).sp),
+    headlineSmall = baseline.headlineSmall.copy(fontFamily = DisplayFontFamily),
+    titleLarge = baseline.titleLarge.copy(fontFamily = DisplayFontFamily),
+    titleMedium = baseline.titleMedium.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Medium),
+    titleSmall = baseline.titleSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Medium),
+    bodyLarge = baseline.bodyLarge.copy(lineHeight = 24.sp),
+    labelLarge = baseline.labelLarge.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Medium),
+)
+
 @Composable
 fun GpsAlarmTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -88,6 +120,7 @@ fun GpsAlarmTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         shapes = AppShapes,
+        typography = AppTypography,
         content = content,
     )
 }

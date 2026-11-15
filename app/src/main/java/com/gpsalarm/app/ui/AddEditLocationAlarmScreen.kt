@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +70,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -85,6 +89,13 @@ import com.gpsalarm.app.ui.map.LocationPickerMap
 import com.gpsalarm.app.ui.map.Place
 import com.gpsalarm.app.ui.map.reverseGeocode
 import com.gpsalarm.app.ui.map.suggestPlaces
+import com.gpsalarm.app.ui.theme.GlassBackdrop
+import com.gpsalarm.app.ui.theme.backdropSource
+import com.gpsalarm.app.ui.theme.glassInk
+import com.gpsalarm.app.ui.theme.glassInkMuted
+import com.gpsalarm.app.ui.theme.glassPanel
+import com.gpsalarm.app.ui.theme.matteBackgroundBrush
+import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -95,35 +106,81 @@ import kotlin.math.roundToInt
 
 private val defaultCenter = GeoPoint(20.0, 0.0)
 
-/** Pass [alarmId] to edit an existing alarm; null creates a new one. */
+/** Full-screen flow for creating a brand-new location alarm (there's no existing card to expand from). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditLocationAlarmScreen(
-    alarmId: Long?,
     onDone: () -> Unit,
     viewModel: AddEditLocationAlarmViewModel = addEditLocationAlarmViewModel(),
 ) {
-    var loading by remember { mutableStateOf(alarmId != null) }
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val backdrop = rememberGlassBackdrop()
+
+    Scaffold(
+        modifier = Modifier.background(matteBackgroundBrush(isDark)),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        topBar = {
+            TopAppBar(
+                title = { Text("New location alarm", color = glassInk(isDark)) },
+                navigationIcon = {
+                    IconButton(onClick = onDone) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
+            )
+        },
+    ) { contentPadding ->
+        Column(
+            modifier = Modifier
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxSize(),
+        ) {
+            LocationAlarmFields(existing = null, onDone = onDone, viewModel = viewModel, mapHeight = null)
+        }
+    }
+}
+
+/**
+ * The editor shown inline, inside an alarm's own list card, when that card is expanded —
+ * no navigation, no separate screen. The card grows around this content, pushing the cards
+ * below it down the list.
+ */
+@Composable
+fun InlineLocationAlarmEditor(
+    alarmId: Long,
+    onDone: () -> Unit,
+    viewModel: AddEditLocationAlarmViewModel = addEditLocationAlarmViewModel(),
+) {
     var existing by remember { mutableStateOf<LocationAlarmEdit?>(null) }
+    var loading by remember { mutableStateOf(true) }
     LaunchedEffect(alarmId) {
-        if (alarmId == null) return@LaunchedEffect
         existing = viewModel.load(alarmId)
         loading = false
         if (existing == null) onDone() // alarm was deleted out from under us
     }
 
     if (loading) {
-        LoadingScreen(onBack = onDone)
+        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
     } else {
-        LocationAlarmForm(existing = existing, onDone = onDone, viewModel = viewModel)
+        // The map can't use weight(1f) here — unlike the full-screen Scaffold, a LazyColumn item
+        // has no bounded height to share, so it gets a fixed height instead.
+        LocationAlarmFields(existing = existing, onDone = onDone, viewModel = viewModel, mapHeight = 260.dp)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationAlarmForm(
+private fun LocationAlarmFields(
     existing: LocationAlarmEdit?,
     onDone: () -> Unit,
     viewModel: AddEditLocationAlarmViewModel,
+    mapHeight: androidx.compose.ui.unit.Dp?,
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -300,25 +357,10 @@ private fun LocationAlarmForm(
         needsReverse = false
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(if (existing == null) "New location alarm" else "Edit location alarm") },
-                navigationIcon = {
-                    IconButton(onClick = onDone) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { contentPadding ->
-        Column(
-            modifier = Modifier
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .fillMaxSize(),
-        ) {
+    val backdrop = rememberGlassBackdrop()
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             if (!fineGranted) {
                 PermissionRationale(
                     text = "GPS Alarm needs location access to detect when you arrive at or leave a destination.",
@@ -340,7 +382,8 @@ private fun LocationAlarmForm(
                 }
 
                 MapWithControls(
-                    modifier = Modifier.weight(1f),
+                    modifier = if (mapHeight != null) Modifier.height(mapHeight) else Modifier.weight(1f),
+                    backdrop = backdrop,
                     center = center,
                     radiusMeters = radiusMeters,
                     addressText = address ?: "%.4f, %.4f".format(Locale.US, center.latitude, center.longitude),
@@ -374,6 +417,7 @@ private fun LocationAlarmForm(
                     Text(
                         formatRadius(radiusMeters),
                         style = MaterialTheme.typography.titleMedium,
+                        fontFamily = com.gpsalarm.app.ui.theme.NumeralFontFamily,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.secondary,
                     )
@@ -427,12 +471,15 @@ private fun LocationAlarmForm(
                 }
             }
         }
+
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
 private fun MapWithControls(
     modifier: Modifier,
+    backdrop: GlassBackdrop,
     center: GeoPoint,
     radiusMeters: Float,
     addressText: String,
@@ -460,6 +507,7 @@ private fun MapWithControls(
             radiusMeters = radiusMeters,
             onLocationSelected = onPickPoint,
             recenterToken = recenterToken,
+            modifier = Modifier.backdropSource(backdrop),
         )
 
         Column(modifier = Modifier.align(Alignment.TopCenter).padding(12.dp)) {
@@ -472,9 +520,12 @@ private fun MapWithControls(
             AnimatedVisibility(visible = panelVisible) {
                 Surface(
                     shape = MaterialTheme.shapes.large,
-                    shadowElevation = 6.dp,
                     color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth(),
                 ) {
                     Column(
                         modifier = Modifier
@@ -485,11 +536,14 @@ private fun MapWithControls(
                             Text(
                                 searchMessage,
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(16.dp),
                             )
                         }
                         results.forEachIndexed { index, place ->
-                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            if (index > 0) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            }
                             ResultRow(place, onClick = { onSelectPlace(place) })
                         }
                     }
@@ -497,14 +551,16 @@ private fun MapWithControls(
             }
         }
 
+        val mapIsDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         if (!panelVisible) {
             Surface(
                 shape = MaterialTheme.shapes.extraLarge,
                 shadowElevation = 4.dp,
-                color = MaterialTheme.colorScheme.surface,
+                color = Color.Transparent,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, end = 72.dp, bottom = 30.dp),
+                    .padding(start = 12.dp, end = 72.dp, bottom = 30.dp)
+                    .glassPanel(backdrop, MaterialTheme.shapes.extraLarge, mapIsDark),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -520,6 +576,7 @@ private fun MapWithControls(
                     Text(
                         addressText,
                         style = MaterialTheme.typography.bodySmall,
+                        color = glassInk(mapIsDark),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -530,14 +587,22 @@ private fun MapWithControls(
         if (!panelVisible) {
             SmallFloatingActionButton(
                 onClick = onUseMyLocation,
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 30.dp),
+                elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 30.dp)
+                    .glassPanel(backdrop, MaterialTheme.shapes.extraLarge, mapIsDark),
             ) {
                 if (locating) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = glassInk(mapIsDark),
+                    )
                 } else {
-                    Icon(Icons.Filled.MyLocation, contentDescription = "Use my location")
+                    Icon(Icons.Filled.MyLocation, contentDescription = "Use my location", tint = glassInk(mapIsDark))
                 }
             }
         }
@@ -545,16 +610,23 @@ private fun MapWithControls(
 }
 
 @Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit, searching: Boolean) {
+private fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    searching: Boolean,
+) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
-        shadowElevation = 6.dp,
         color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 4.dp,
+        modifier = Modifier.fillMaxWidth(),
     ) {
         TextField(
             value = query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Search for a place or address") },
+            placeholder = { Text("Search") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 when {
@@ -569,8 +641,8 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSearch
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             shape = MaterialTheme.shapes.extraLarge,
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
             ),
@@ -587,7 +659,13 @@ private fun ResultRow(place: Place, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        Text(place.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            place.title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (place.subtitle.isNotEmpty()) {
             Text(
                 place.subtitle,
@@ -602,7 +680,10 @@ private fun ResultRow(place: Place, onClick: () -> Unit) {
 
 @Composable
 private fun PermissionRationale(text: String, buttonText: String, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text)
             Spacer(modifier = Modifier.height(12.dp))
