@@ -13,6 +13,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +33,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
@@ -44,7 +46,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SmallFloatingActionButton
@@ -56,8 +57,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,10 +73,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.google.android.gms.location.CurrentLocationRequest
@@ -89,13 +88,11 @@ import com.gpsalarm.app.ui.map.LocationPickerMap
 import com.gpsalarm.app.ui.map.Place
 import com.gpsalarm.app.ui.map.reverseGeocode
 import com.gpsalarm.app.ui.map.suggestPlaces
-import com.gpsalarm.app.ui.theme.GlassBackdrop
-import com.gpsalarm.app.ui.theme.backdropSource
-import com.gpsalarm.app.ui.theme.glassInk
-import com.gpsalarm.app.ui.theme.glassInkMuted
-import com.gpsalarm.app.ui.theme.glassPanel
-import com.gpsalarm.app.ui.theme.matteBackgroundBrush
-import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
+import com.gpsalarm.app.ui.theme.ArcadeRadius
+import com.gpsalarm.app.ui.theme.TactileButton
+import com.gpsalarm.app.ui.theme.TactileSurface
+import com.gpsalarm.app.ui.theme.arcadeColors
+import com.gpsalarm.app.ui.theme.arcadeType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -106,40 +103,30 @@ import kotlin.math.roundToInt
 
 private val defaultCenter = GeoPoint(20.0, 0.0)
 
-/** Full-screen flow for creating a brand-new location alarm (there's no existing card to expand from). */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Content for the floating "new alarm" tray (see AlarmListScreen's FloatingTray) — a title row
+ * with a close "X", then the same fields used when editing an existing alarm from the list.
+ */
 @Composable
-fun AddEditLocationAlarmScreen(
-    onDone: () -> Unit,
-    viewModel: AddEditLocationAlarmViewModel = addEditLocationAlarmViewModel(),
-) {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val backdrop = rememberGlassBackdrop()
-
-    Scaffold(
-        modifier = Modifier.background(matteBackgroundBrush(isDark)),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text("New location alarm", color = glassInk(isDark)) },
-                navigationIcon = {
-                    IconButton(onClick = onDone) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
-            )
-        },
-    ) { contentPadding ->
+fun NewLocationAlarmTray(onClose: () -> Unit, viewModel: AddEditLocationAlarmViewModel = addEditLocationAlarmViewModel()) {
+    val colors = arcadeColors
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("NEW LOCATION ALARM", style = arcadeType.button, color = colors.textPrimary)
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = "Close", tint = colors.textPrimary)
+            }
+        }
         Column(
             modifier = Modifier
-                .padding(contentPadding)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .fillMaxSize(),
         ) {
-            LocationAlarmFields(existing = null, onDone = onDone, viewModel = viewModel, mapHeight = null)
+            LocationAlarmFields(existing = null, onDone = onClose, viewModel = viewModel, mapHeight = null)
         }
     }
 }
@@ -357,8 +344,6 @@ private fun LocationAlarmFields(
         needsReverse = false
     }
 
-    val backdrop = rememberGlassBackdrop()
-
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             if (!fineGranted) {
@@ -383,7 +368,6 @@ private fun LocationAlarmFields(
 
                 MapWithControls(
                     modifier = if (mapHeight != null) Modifier.height(mapHeight) else Modifier.weight(1f),
-                    backdrop = backdrop,
                     center = center,
                     radiusMeters = radiusMeters,
                     addressText = address ?: "%.4f, %.4f".format(Locale.US, center.latitude, center.longitude),
@@ -413,13 +397,11 @@ private fun LocationAlarmFields(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Radius", style = MaterialTheme.typography.titleMedium)
+                    Text("Radius", style = arcadeType.title, color = arcadeColors.textPrimary)
                     Text(
                         formatRadius(radiusMeters),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontFamily = com.gpsalarm.app.ui.theme.NumeralFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary,
+                        style = arcadeType.ticker.copy(fontSize = 20.sp),
+                        color = arcadeColors.accentSecondary,
                     )
                 }
                 Slider(
@@ -427,9 +409,9 @@ private fun LocationAlarmFields(
                     onValueChange = { radiusMeters = (it / 50f).roundToInt() * 50f },
                     valueRange = 100f..5000f,
                     colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.secondary,
-                        activeTrackColor = MaterialTheme.colorScheme.secondary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        thumbColor = arcadeColors.accentSecondary,
+                        activeTrackColor = arcadeColors.accentSecondary,
+                        inactiveTrackColor = arcadeColors.outline.copy(alpha = 0.3f),
                     ),
                 )
 
@@ -443,13 +425,25 @@ private fun LocationAlarmFields(
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Label") },
+                    label = { Text("Label", style = arcadeType.body) },
+                    shape = RoundedCornerShape(ArcadeRadius.sm),
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = arcadeColors.outline,
+                        unfocusedIndicatorColor = arcadeColors.outline,
+                        focusedContainerColor = arcadeColors.bgSurface,
+                        unfocusedContainerColor = arcadeColors.bgSurface,
+                        focusedTextColor = arcadeColors.textPrimary,
+                        unfocusedTextColor = arcadeColors.textPrimary,
+                        cursorColor = arcadeColors.accentSecondary,
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Button(
+                TactileButton(
+                    text = if (existing == null) "Save" else "Save changes",
+                    fillColor = arcadeColors.accentSecondary,
                     onClick = {
                         viewModel.save(
                             existing = existing?.alarm,
@@ -466,9 +460,7 @@ private fun LocationAlarmFields(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(if (existing == null) "Save" else "Save changes")
-                }
+                )
             }
         }
 
@@ -479,7 +471,6 @@ private fun LocationAlarmFields(
 @Composable
 private fun MapWithControls(
     modifier: Modifier,
-    backdrop: GlassBackdrop,
     center: GeoPoint,
     radiusMeters: Float,
     addressText: String,
@@ -507,7 +498,7 @@ private fun MapWithControls(
             radiusMeters = radiusMeters,
             onLocationSelected = onPickPoint,
             recenterToken = recenterToken,
-            modifier = Modifier.backdropSource(backdrop),
+            modifier = Modifier,
         )
 
         Column(modifier = Modifier.align(Alignment.TopCenter).padding(12.dp)) {
@@ -518,11 +509,13 @@ private fun MapWithControls(
                 searching = searching,
             )
             AnimatedVisibility(visible = panelVisible) {
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    shadowElevation = 6.dp,
+                TactileSurface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.sm),
+                    fillColor = arcadeColors.bgSurface,
+                    outlineColor = arcadeColors.outline,
+                    shadowColor = arcadeColors.outline,
+                    pressed = false,
+                    shadowOffset = 3.dp,
                     modifier = Modifier
                         .padding(top = 8.dp)
                         .fillMaxWidth(),
@@ -535,14 +528,14 @@ private fun MapWithControls(
                         if (searchMessage != null) {
                             Text(
                                 searchMessage,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = arcadeType.body,
+                                color = arcadeColors.textSecondary,
                                 modifier = Modifier.padding(16.dp),
                             )
                         }
                         results.forEachIndexed { index, place ->
                             if (index > 0) {
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                HorizontalDivider(color = arcadeColors.outline.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 16.dp))
                             }
                             ResultRow(place, onClick = { onSelectPlace(place) })
                         }
@@ -551,16 +544,17 @@ private fun MapWithControls(
             }
         }
 
-        val mapIsDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         if (!panelVisible) {
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                shadowElevation = 4.dp,
-                color = Color.Transparent,
+            TactileSurface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.sm),
+                fillColor = arcadeColors.bgSurface,
+                outlineColor = arcadeColors.outline,
+                shadowColor = arcadeColors.outline,
+                pressed = false,
+                shadowOffset = 3.dp,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 12.dp, end = 72.dp, bottom = 30.dp)
-                    .glassPanel(backdrop, MaterialTheme.shapes.extraLarge, mapIsDark),
+                    .padding(start = 12.dp, end = 72.dp, bottom = 30.dp),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -569,14 +563,14 @@ private fun MapWithControls(
                     Icon(
                         Icons.Filled.LocationOn,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = arcadeColors.accentSecondary,
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         addressText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glassInk(mapIsDark),
+                        style = arcadeType.body,
+                        color = arcadeColors.textPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -585,24 +579,28 @@ private fun MapWithControls(
         }
 
         if (!panelVisible) {
-            SmallFloatingActionButton(
-                onClick = onUseMyLocation,
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
-                elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
+            val locateInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            TactileSurface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                fillColor = arcadeColors.bgSurface,
+                outlineColor = arcadeColors.outline,
+                shadowColor = arcadeColors.outline,
+                pressed = false,
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp, bottom = 30.dp)
-                    .glassPanel(backdrop, MaterialTheme.shapes.extraLarge, mapIsDark),
+                    .size(48.dp)
+                    .clickable(interactionSource = locateInteraction, indication = null, onClick = onUseMyLocation),
             ) {
                 if (locating) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(22.dp),
                         strokeWidth = 2.dp,
-                        color = glassInk(mapIsDark),
+                        color = arcadeColors.textPrimary,
                     )
                 } else {
-                    Icon(Icons.Filled.MyLocation, contentDescription = "Use my location", tint = glassInk(mapIsDark))
+                    Icon(Icons.Filled.MyLocation, contentDescription = "Use my location", tint = arcadeColors.textPrimary)
                 }
             }
         }
@@ -616,35 +614,40 @@ private fun SearchField(
     onSearch: () -> Unit,
     searching: Boolean,
 ) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp,
-        shadowElevation = 4.dp,
+    TactileSurface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.sm),
+        fillColor = arcadeColors.bgSurface,
+        outlineColor = arcadeColors.outline,
+        shadowColor = arcadeColors.outline,
+        pressed = false,
+        shadowOffset = 3.dp,
         modifier = Modifier.fillMaxWidth(),
     ) {
         TextField(
             value = query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Search") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            placeholder = { Text("Search", style = arcadeType.body) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = arcadeColors.textSecondary) },
             trailingIcon = {
                 when {
-                    searching -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    searching -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = arcadeColors.accentPrimary)
                     query.isNotEmpty() -> IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search", tint = arcadeColors.textSecondary)
                     }
                 }
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-            shape = MaterialTheme.shapes.extraLarge,
+            textStyle = arcadeType.body,
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedContainerColor = arcadeColors.bgSurface,
+                unfocusedContainerColor = arcadeColors.bgSurface,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = arcadeColors.textPrimary,
+                unfocusedTextColor = arcadeColors.textPrimary,
+                cursorColor = arcadeColors.accentPrimary,
             ),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -661,16 +664,16 @@ private fun ResultRow(place: Place, onClick: () -> Unit) {
     ) {
         Text(
             place.title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = arcadeType.body,
+            color = arcadeColors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (place.subtitle.isNotEmpty()) {
             Text(
                 place.subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = arcadeType.ticker,
+                color = arcadeColors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -680,14 +683,18 @@ private fun ResultRow(place: Place, onClick: () -> Unit) {
 
 @Composable
 private fun PermissionRationale(text: String, buttonText: String, onClick: () -> Unit) {
-    Card(
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp),
+    TactileSurface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.md),
+        fillColor = arcadeColors.bgSurface,
+        outlineColor = arcadeColors.outline,
+        shadowColor = arcadeColors.outline,
+        pressed = false,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text)
+            Text(text, style = arcadeType.body, color = arcadeColors.textPrimary)
             Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onClick) { Text(buttonText) }
+            TactileButton(text = buttonText, onClick = onClick, modifier = Modifier.fillMaxWidth(), height = 48.dp)
         }
     }
 }

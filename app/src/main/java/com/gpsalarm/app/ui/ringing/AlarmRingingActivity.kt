@@ -6,8 +6,14 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,9 +48,9 @@ import com.gpsalarm.app.data.AlarmRepository
 import com.gpsalarm.app.data.AlarmType
 import com.gpsalarm.app.data.AppDatabase
 import com.gpsalarm.app.ui.theme.GpsAlarmTheme
-import com.gpsalarm.app.ui.theme.glassInk
-import com.gpsalarm.app.ui.theme.glassPanel
-import com.gpsalarm.app.ui.theme.matteBackgroundBrush
+import com.gpsalarm.app.ui.theme.TactileButton
+import com.gpsalarm.app.ui.theme.arcadeColors
+import com.gpsalarm.app.ui.theme.arcadeType
 
 class AlarmRingingActivity : ComponentActivity() {
 
@@ -59,7 +61,9 @@ class AlarmRingingActivity : ComponentActivity() {
         val alarmId = intent.getLongExtra(TimeAlarmScheduler.EXTRA_ALARM_ID, -1L)
 
         setContent {
-            GpsAlarmTheme {
+            // Always dark, regardless of the app's own theme setting — glare reduction for a
+            // screen that's often seen half-asleep or in the dark.
+            GpsAlarmTheme(darkTheme = true) {
                 AlarmRingingScreen(
                     alarmId = alarmId,
                     onDismiss = { sendServiceAction(alarmId, AlarmRingingService.ACTION_DISMISS) },
@@ -96,7 +100,7 @@ class AlarmRingingActivity : ComponentActivity() {
 @Composable
 private fun AlarmRingingScreen(alarmId: Long, onDismiss: () -> Unit, onSnooze: () -> Unit) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val colors = arcadeColors
     var label by remember { mutableStateOf("Alarm") }
     var isLocationAlarm by remember { mutableStateOf(false) }
 
@@ -108,22 +112,28 @@ private fun AlarmRingingScreen(alarmId: Long, onDismiss: () -> Unit, onSnooze: (
         }
     }
 
-    val glow = if (isLocationAlarm) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+    // A looping ambient glow communicates "live/ringing" state — the one place the glow accent
+    // is used purely atmospherically.
+    val infiniteTransition = rememberInfiniteTransition(label = "ringGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "glowAlpha",
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(matteBackgroundBrush(isDark)),
+            .background(colors.bgBase),
     ) {
-        // The one bold moment in the app: a soft brand-colored glow behind the ring, blurred
-        // against itself only (safe without backdrop-blur support) rather than a flat icon.
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(360.dp)
                 .blur(90.dp)
                 .background(
-                    Brush.radialGradient(colors = listOf(glow.copy(alpha = 0.45f), Color.Transparent)),
+                    Brush.radialGradient(colors = listOf(colors.accentGlow.copy(alpha = glowAlpha), Color.Transparent)),
                     shape = CircleShape,
                 ),
         )
@@ -134,38 +144,42 @@ private fun AlarmRingingScreen(alarmId: Long, onDismiss: () -> Unit, onSnooze: (
             verticalArrangement = Arrangement.Center,
         ) {
             Box(
-                modifier = Modifier.size(84.dp).glassPanel(backdrop = null, shape = CircleShape, isDark = isDark),
+                modifier = Modifier
+                    .size(84.dp)
+                    .background(colors.bgSurface, CircleShape)
+                    .border(1.5.dp, colors.outline, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     if (isLocationAlarm) Icons.Filled.LocationOn else Icons.Filled.Schedule,
                     contentDescription = null,
-                    tint = glow,
+                    tint = colors.accentGlow,
                     modifier = Modifier.size(40.dp),
                 )
             }
 
             Spacer(modifier = Modifier.height(28.dp))
-            Text(label, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+            if (label.isNotBlank()) {
+                Text(label, style = arcadeType.title, color = colors.textPrimary)
+            }
             Spacer(modifier = Modifier.height(56.dp))
 
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = glow),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Dismiss")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
+            TactileButton(
+                text = "Snooze",
                 onClick = onSnooze,
-                border = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassPanel(backdrop = null, shape = MaterialTheme.shapes.extraLarge, isDark = isDark),
-            ) {
-                Text("Snooze", color = glassInk(isDark))
-            }
+                fillColor = colors.accentGlow,
+                textColor = colors.textPrimary,
+                modifier = Modifier.fillMaxWidth(),
+                height = 64.dp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            TactileButton(
+                text = "Dismiss",
+                onClick = onDismiss,
+                outlined = true,
+                modifier = Modifier.fillMaxWidth(),
+                height = 64.dp,
+            )
         }
     }
 }

@@ -42,9 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -60,11 +57,6 @@ import com.gpsalarm.app.data.AlarmType
 import com.gpsalarm.app.diagnostics.DiagnosticsLog
 import com.gpsalarm.app.diagnostics.MockLocationInjector
 import com.gpsalarm.app.geofence.GeofenceManager
-import com.gpsalarm.app.ui.theme.backdropSource
-import com.gpsalarm.app.ui.theme.glassInk
-import com.gpsalarm.app.ui.theme.glassPanel
-import com.gpsalarm.app.ui.theme.matteBackgroundBrush
-import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -82,28 +74,25 @@ fun DiagnosticsScreen(onBack: () -> Unit, viewModel: AlarmListViewModel = alarmL
     var refresh by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
     val status = remember(refresh) { statusLines(context) }
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val backdrop = rememberGlassBackdrop()
 
     Scaffold(
-        modifier = Modifier.background(matteBackgroundBrush(isDark)),
-        containerColor = Color.Transparent,
+        modifier = Modifier.background(MaterialTheme.colorScheme.background),
+        containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Diagnostics", color = glassInk(isDark)) },
+                title = { Text("Diagnostics") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().backdropSource(backdrop).padding(contentPadding),
+            modifier = Modifier.fillMaxSize().padding(contentPadding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {

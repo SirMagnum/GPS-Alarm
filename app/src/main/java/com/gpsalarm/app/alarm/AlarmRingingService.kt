@@ -37,6 +37,7 @@ class AlarmRingingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var ringJob: Job? = null
     private var ringingAlarmSnoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES
+    private var ringingAlarmId: Long? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -59,13 +60,26 @@ class AlarmRingingService : Service() {
                 TimeAlarmScheduler(this).scheduleSnooze(alarmId, ringingAlarmSnoozeMinutes)
                 stopRinging()
             }
-            else -> startRinging(alarmId)
+            else -> {
+                if (ringingAlarmId == alarmId) {
+                    // A duplicate trigger for the alarm already ringing — e.g. the native geofence
+                    // transition arriving after approach-tracking's own GPS poll already caught the
+                    // arrival. Starting a second MediaPlayer here would orphan the first one (its
+                    // reference gets overwritten, but it keeps looping), so it would survive a
+                    // later Dismiss with no notification left to reach it. Ignore it instead.
+                    DiagnosticsLog.record(this, "Ignoring duplicate ringing trigger for #$alarmId")
+                } else {
+                    if (ringingAlarmId != null) releaseRingingResources()
+                    startRinging(alarmId)
+                }
+            }
         }
         return START_REDELIVER_INTENT
     }
 
     private fun startRinging(alarmId: Long) {
         DiagnosticsLog.record(this, "Ringing started for #$alarmId")
+        ringingAlarmId = alarmId
         startForeground(NOTIFICATION_ID, buildNotification(alarmId))
         acquireWakeLock()
 
@@ -162,7 +176,7 @@ class AlarmRingingService : Service() {
         }
     }
 
-    private fun stopRinging() {
+    private fun releaseRingingResources() {
         ringJob?.cancel()
         mediaPlayer?.let { runCatching { it.stop() }; it.release() }
         mediaPlayer = null
@@ -170,6 +184,11 @@ class AlarmRingingService : Service() {
         vibrator = null
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
+        ringingAlarmId = null
+    }
+
+    private fun stopRinging() {
+        releaseRingingResources()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Mirrors the Compose palette in ui/theme/Color.kt -->
-    <color name="ic_launcher_background">#1E2340</color>
-    <color name="logo_pin">#F2A340</color>
-    <color name="logo_bell">#C97E1E</color>
-    <color name="logo_face">#F6F5F2</color>
-    <color name="logo_hands">#1E2340</color>
+    <!-- Mirrors the "Marquee Night" palette in ui/theme/Color.kt — the launcher icon, splash
+         screen, and map pin all read dark regardless of the in-app theme setting, same as the
+         ringing screen, so the app's identity stays one fixed "arcade marquee" look outside it. -->
+    <color name="ic_launcher_background">#14100C</color>
+    <color name="logo_pin">#FF6A3D</color>
+    <color name="logo_bell">#CC4A28</color>
+    <color name="logo_face">#F6EFE2</color>
+    <color name="logo_hands">#0A0806</color>
 </resources>

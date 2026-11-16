@@ -15,7 +15,7 @@
     <!-- Geofence radius ring under the tip -->
     <path
         android:pathData="M42,79.5 A12,3.5 0 1,0 66,79.5 A12,3.5 0 1,0 42,79.5 Z"
-        android:strokeColor="#80F2A340"
+        android:strokeColor="#80FF6A3D"
         android:strokeWidth="1.6" />
 
     <!-- Alarm bells -->

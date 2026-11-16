@@ -9,7 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,25 +17,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,9 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -54,11 +44,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gpsalarm.app.settings.SettingsStore
-import com.gpsalarm.app.ui.theme.backdropSource
-import com.gpsalarm.app.ui.theme.glassInk
-import com.gpsalarm.app.ui.theme.glassPanel
-import com.gpsalarm.app.ui.theme.matteBackgroundBrush
-import com.gpsalarm.app.ui.theme.rememberGlassBackdrop
+import com.gpsalarm.app.ui.theme.ArcadeRadius
+import com.gpsalarm.app.ui.theme.TactileChip
+import com.gpsalarm.app.ui.theme.TactileSurface
+import com.gpsalarm.app.ui.theme.arcadeColors
+import com.gpsalarm.app.ui.theme.arcadeType
 
 private data class HealthCheck(
     val title: String,
@@ -68,10 +58,15 @@ private data class HealthCheck(
     val fix: Intent,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Settings' content, as a floating panel over the dimmed home screen rather than a separate
+ * nav screen — see [AlarmListScreen], which hosts this inside an `AnimatedVisibility` that
+ * expands out of the gear icon and collapses back into it.
+ */
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
+fun SettingsPanel(onClose: () -> Unit, onOpenDiagnostics: () -> Unit) {
     val context = LocalContext.current
+    val colors = arcadeColors
 
     // Permissions are changed in system screens, so re-check whenever the user comes back.
     var refresh by remember { mutableIntStateOf(0) }
@@ -82,76 +77,48 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
     val mapStyle by SettingsStore.mapStyle(context).collectAsStateWithLifecycle()
     var snoozeMinutes by remember { mutableIntStateOf(SettingsStore.defaultSnoozeMinutes(context)) }
 
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val backdrop = rememberGlassBackdrop()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("SETTINGS", style = arcadeType.button, color = colors.textPrimary)
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = "Close settings", tint = colors.textPrimary)
+            }
+        }
 
-    Scaffold(
-        modifier = Modifier.background(matteBackgroundBrush(isDark)),
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings", color = glassInk(isDark)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = glassInk(isDark))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                modifier = Modifier.glassPanel(backdrop, RectangleShape, isDark),
-            )
-        },
-    ) { contentPadding ->
         Column(
             modifier = Modifier
-                .padding(contentPadding)
                 .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-                .backdropSource(backdrop),
+                .verticalScroll(rememberScrollState()),
         ) {
             SectionTitle("Appearance")
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            SettingsCard {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Theme", style = MaterialTheme.typography.titleMedium)
+                    Text("Theme", style = arcadeType.title, color = colors.textPrimary)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         listOf(
                             SettingsStore.ThemeMode.SYSTEM to "System",
                             SettingsStore.ThemeMode.LIGHT to "Light",
                             SettingsStore.ThemeMode.DARK to "Dark",
                         ).forEach { (mode, name) ->
-                            FilterChip(
-                                selected = themeMode == mode,
-                                onClick = { SettingsStore.setThemeMode(context, mode) },
-                                label = { Text(name) },
-                            )
+                            TactileChip(text = name, selected = themeMode == mode, onClick = { SettingsStore.setThemeMode(context, mode) })
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
-                    Text("Map", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Separate from the app theme, so you can keep the map easy to read.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("Map", style = arcadeType.title, color = colors.textPrimary)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         listOf(
                             SettingsStore.MapStyle.MATCH_APP to "Match app",
                             SettingsStore.MapStyle.LIGHT to "Light",
                             SettingsStore.MapStyle.DARK to "Dark",
                         ).forEach { (style, name) ->
-                            FilterChip(
-                                selected = mapStyle == style,
-                                onClick = { SettingsStore.setMapStyle(context, style) },
-                                label = { Text(name) },
-                            )
+                            TactileChip(text = name, selected = mapStyle == style, onClick = { SettingsStore.setMapStyle(context, style) })
                         }
                     }
                 }
@@ -159,29 +126,20 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("Alarms")
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            SettingsCard {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Snooze length", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Applies to alarms you create from now on.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text("Snooze length", style = arcadeType.title, color = colors.textPrimary)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SettingsStore.SNOOZE_CHOICES_MIN.forEach { minutes ->
-                            FilterChip(
+                            TactileChip(
+                                text = "${minutes}m",
                                 selected = snoozeMinutes == minutes,
                                 onClick = {
                                     snoozeMinutes = minutes
                                     SettingsStore.setDefaultSnoozeMinutes(context, minutes)
                                 },
-                                label = { Text("$minutes min") },
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
@@ -192,8 +150,8 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
             SectionTitle("Reliability")
             Text(
                 "Alarms only fire on time if Android lets this app run in the background. Anything marked below can make an alarm late or silent.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = arcadeType.body,
+                color = colors.textSecondary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -202,33 +160,24 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("Troubleshooting")
-            Card(
-                onClick = onOpenDiagnostics,
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            SettingsCard(onClick = onOpenDiagnostics) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Diagnostics", style = MaterialTheme.typography.titleMedium)
+                    Text("Diagnostics", style = arcadeType.title, color = colors.textPrimary)
                     Text(
                         "See when alarms were set up and when they fired, to find out why one was late.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = arcadeType.body,
+                        color = colors.textSecondary,
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
             SectionTitle("About")
-            Text(
-                "GPS Alarm ${versionName(context)}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text("GPS Alarm ${versionName(context)}", style = arcadeType.body, color = colors.textPrimary)
             Text(
                 "Map data © OpenStreetMap contributors",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = arcadeType.ticker,
+                color = colors.textSecondary,
             )
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -238,19 +187,44 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDiagnostics: () -> Unit) {
 @Composable
 private fun SectionTitle(text: String) {
     Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
+        text.uppercase(),
+        style = arcadeType.ticker,
+        color = arcadeColors.accentPrimary,
         modifier = Modifier.padding(vertical = 8.dp),
     )
 }
 
+/** The one card shape every settings row/group shares: hard-shadow outline, no soft Material elevation. */
+@Composable
+private fun SettingsCard(onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    val colors = arcadeColors
+    val modifier = if (onClick != null) {
+        val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+        Modifier.fillMaxWidth().clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+    } else {
+        Modifier.fillMaxWidth()
+    }
+    TactileSurface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.md),
+        fillColor = colors.bgSurface,
+        outlineColor = colors.outline,
+        shadowColor = colors.outline,
+        pressed = false,
+        modifier = modifier,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) { content() }
+    }
+}
+
 @Composable
 private fun HealthRow(check: HealthCheck, context: Context) {
-    Card(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    val colors = arcadeColors
+    TactileSurface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(ArcadeRadius.md),
+        fillColor = colors.bgSurface,
+        outlineColor = colors.outline,
+        shadowColor = colors.outline,
+        pressed = false,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -260,19 +234,21 @@ private fun HealthRow(check: HealthCheck, context: Context) {
             Icon(
                 imageVector = if (check.isOk) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                 contentDescription = if (check.isOk) "OK" else "Needs attention",
-                tint = if (check.isOk) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
+                tint = if (check.isOk) colors.accentSecondary else colors.danger,
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(check.title, style = MaterialTheme.typography.titleMedium)
+                Text(check.title, style = arcadeType.title, color = colors.textPrimary)
                 Text(
                     if (check.isOk) check.okText else check.problemText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = arcadeType.body,
+                    color = colors.textSecondary,
                 )
             }
             if (!check.isOk) {
-                TextButton(onClick = { runCatching { context.startActivity(check.fix) } }) { Text("Fix") }
+                TextButton(onClick = { runCatching { context.startActivity(check.fix) } }) {
+                    Text("Fix", style = arcadeType.button, color = colors.accentPrimary)
+                }
             }
         }
     }

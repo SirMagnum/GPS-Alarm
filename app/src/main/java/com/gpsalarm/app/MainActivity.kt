@@ -18,15 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gpsalarm.app.settings.SettingsStore
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.gpsalarm.app.ui.GpsAlarmNavHost
 import com.gpsalarm.app.ui.theme.GpsAlarmTheme
-import com.gpsalarm.app.ui.theme.matteBackgroundBrush
 
 class MainActivity : ComponentActivity() {
 
@@ -60,11 +55,7 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             GpsAlarmTheme(darkTheme = darkTheme) {
-                // One matte gradient behind the whole app, rather than each screen's flat fill —
-                // what gives the floating glass bars and sheets below something to sit on.
-                Box(modifier = Modifier.fillMaxSize().background(matteBackgroundBrush(darkTheme))) {
-                    GpsAlarmNavHost()
-                }
+                GpsAlarmNavHost()
             }
         }
     }

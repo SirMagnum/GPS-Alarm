@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.gpsalarm.app.ui.theme.arcadeColors
+import com.gpsalarm.app.ui.theme.arcadeType
 
 @Composable
 fun SoundAndVibrateSection(
@@ -42,7 +44,11 @@ fun SoundAndVibrateSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(if (soundUri == null) "Default alarm sound" else "Custom sound selected")
+            Text(
+                if (soundUri == null) "Default alarm sound" else "Custom sound selected",
+                style = arcadeType.body,
+                color = arcadeColors.textPrimary,
+            )
             OutlinedButton(onClick = {
                 val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                     putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -66,7 +72,7 @@ fun SoundAndVibrateSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Vibrate")
+            Text("Vibrate", style = arcadeType.body, color = arcadeColors.textPrimary)
             Switch(checked = vibrate, onCheckedChange = onVibrateChange)
         }
     }
